@@ -11,7 +11,7 @@ from models.backbones.net import Attention, Conv, MLP_SE
 
 BASE_DATA_DIR = cfg.DATASET.BASE_DATA_DIR
 # SMPL_MEAN_PARAMS = osp.join(BASE_DATA_DIR, 'smpl_mean_params.npz')
-SMPL_MEAN_vertices = osp.join(osp.dirname(__file__), osp.join(BASE_DATA_DIR, "smpl_mean_vertices.npy"))
+SMPL_MEAN_vertices = osp.join(BASE_DATA_DIR, "smpl_mean_vertices.npy")
 
 
 class Block(nn.Module):
