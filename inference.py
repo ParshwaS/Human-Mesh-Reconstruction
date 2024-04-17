@@ -42,7 +42,7 @@ from vis import vis_2d_keypoints, vis_coco_skeleton
 from _mano import MANO
 from smpl import SMPL
 
-def get_model():
+def get_model(trained_model='3dpw'):
 
     mesh_model = SMPL()
     joint_regressor = mesh_model.joint_regressor_coco
@@ -54,8 +54,9 @@ def get_model():
     flip_pairs = ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16))
     graph_Adj, graph_L, graph_perm, graph_perm_reverse = \
         build_coarse_graphs(mesh_model.face, joint_num, skeleton, flip_pairs, levels=9)
-    model_chk_path = 'GTRS/experiment/gtrs_h36m'
-    #model_chk_path = 'GTRS/experiment/gtrs_3dpw'
+    model_chk_path = osp.join(osp.dirname(__file__),'GTRS/experiment/gtrs_h36m')
+    if (trained_model == '3dpw'):
+        model_chk_path = osp.join(osp.dirname(__file__),'GTRS/experiment/gtrs_3dpw')
 
     model = models.GTRS_net.get_model(joint_num, graph_L)
     checkpoint = load_checkpoint(load_dir=model_chk_path)
@@ -108,6 +109,9 @@ def render(result, orig_height, orig_width, orig_img, mesh_face, color):
     return renederd_img
 
 def optimize_cam_param(project_net, joint_input, crop_size, model, joint_regressor):
+    
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
     bbox = get_bbox(joint_input)
     bbox1 = process_bbox(bbox.copy(), aspect_ratio=1.0, scale=1.25)
     bbox2 = process_bbox(bbox.copy())
@@ -118,8 +122,8 @@ def optimize_cam_param(project_net, joint_input, crop_size, model, joint_regress
     joint_img /= np.array([[cfg.MODEL.input_shape[1], cfg.MODEL.input_shape[0]]])
     mean, std = np.mean(joint_img, axis=0), np.std(joint_img, axis=0)
     joint_img = (joint_img.copy() - mean) / std
-    joint_img = torch.Tensor(joint_img[None, :, :]).cuda()
-    target_joint = torch.Tensor(proj_target_joint_img[None, :, :2]).cuda()
+    joint_img = torch.Tensor(joint_img[None, :, :]).to(device)
+    target_joint = torch.Tensor(proj_target_joint_img[None, :, :2]).to(device)
 
     # get optimization settings for projection
     criterion = nn.L1Loss()
@@ -168,15 +172,15 @@ def main(args):
     model = model.to(device)
     joint_regressor = torch.Tensor(joint_regressor).to(device)
     coco_joints_name = ('Nose', 'L_Eye', 'R_Eye', 'L_Ear', 'R_Ear', 'L_Shoulder', 'R_Shoulder', 'L_Elbow', 'R_Elbow', 'L_Wrist', 'R_Wrist', 'L_Hip', 'R_Hip', 'L_Knee', 'R_Knee', 'L_Ankle', 'R_Ankle', 'Pelvis', 'Neck')
-    project_net = models.project_net.get_model().cuda()
+    project_net = models.project_net.get_model().to(device)
     joint_input = np.load(input_path)
 
     joint_input = joint_input.reshape(17,-1)
 
     input_name = input_path.split('/')[-1].split('.')[0]
     output_path = args.output_path + '/' + input_name
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
+    if not os.path.exists(args.output_path):
+        os.mkdir(args.output_path)
 
     # Adding pelvis and neck
 
