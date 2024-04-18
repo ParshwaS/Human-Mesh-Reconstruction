@@ -4,7 +4,7 @@ import numpy as np
 from helper import preprocess_joint
 
 # Load the image
-image_path = 'Tests/Parshwa.jpeg'
+image_path = "Tests/Parshwa.jpeg"
 
 # Detect 2D pose
 pose, net = detect_2d_pose(image_path)
@@ -13,7 +13,7 @@ script_module = torch.jit.script(net)
 script_module.save("PoseDetector.pt")
 
 # Load Model
-GTRS = torch.jit.load('GTRS.pt')
+GTRS = torch.jit.load("GTRS.pt")
 
 joint_input = pose[0]
 

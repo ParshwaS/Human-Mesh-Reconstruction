@@ -4,7 +4,7 @@ import cv2
 
 
 class Rodrigues(ch.Ch):
-    dterms = 'rt'
+    dterms = "rt"
 
     def compute_r(self):
         return cv2.Rodrigues(self.rt.r)[0]
@@ -17,7 +17,12 @@ class Rodrigues(ch.Ch):
 def lrotmin(p):
     if isinstance(p, np.ndarray):
         p = p.ravel()[3:]
-        return np.concatenate([(cv2.Rodrigues(np.array(pp))[0] - np.eye(3)).ravel() for pp in p.reshape((-1, 3))]).ravel()
+        return np.concatenate(
+            [
+                (cv2.Rodrigues(np.array(pp))[0] - np.eye(3)).ravel()
+                for pp in p.reshape((-1, 3))
+            ]
+        ).ravel()
     if p.ndim != 2 or p.shape[1] != 3:
         p = p.reshape((-1, 3))
     p = p[1:]
@@ -25,7 +30,7 @@ def lrotmin(p):
 
 
 def posemap(s):
-    if s == 'lrotmin':
+    if s == "lrotmin":
         return lrotmin
     else:
-        raise Exception('Unknown posemapping: %s' % (str(s),))
+        raise Exception("Unknown posemapping: %s" % (str(s),))

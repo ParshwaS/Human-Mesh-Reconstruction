@@ -44,7 +44,7 @@ def flip_3d_joint(kp, flip_pairs):
     for lr in flip_pairs:
         kp[lr[0]], kp[lr[1]] = kp[lr[1]].copy(), kp[lr[0]].copy()
 
-    kp[:,0] = - kp[:,0]
+    kp[:, 0] = -kp[:, 0]
     return kp
 
 
@@ -60,7 +60,7 @@ def j2d_processing(kp, res, bbox, rot, f, flip_pairs):
 
     if f:
         kp = flip_2d_joint(kp, res[0], flip_pairs)
-    kp = kp.astype('float32')
+    kp = kp.astype("float32")
     return kp, trans
 
 
@@ -73,12 +73,12 @@ def j3d_processing(S, r, f, flip_pairs):
         sn, cs = np.sin(rot_rad), np.cos(rot_rad)
         rot_mat[0, :2] = [cs, -sn]
         rot_mat[1, :2] = [sn, cs]
-    S = np.einsum('ij,kj->ki', rot_mat, S)
+    S = np.einsum("ij,kj->ki", rot_mat, S)
 
     # flip the x coordinates
     if f:
         S = flip_3d_joint(S, flip_pairs)
-    S = S.astype('float32')
+    S = S.astype("float32")
 
     return S
 
@@ -88,9 +88,9 @@ def my3d_processing(S, r):
     if not r == 0:
         rot_rad = -r * np.pi / 180
         sn, cs = np.sin(rot_rad), np.cos(rot_rad)
-        rot_mat[0, [0,2]] = [cs, sn]
-        rot_mat[2, [0,2]] = [-sn, cs]
-    S = np.einsum('ij,kj->ki', rot_mat, S)
+        rot_mat[0, [0, 2]] = [cs, sn]
+        rot_mat[2, [0, 2]] = [-sn, cs]
+    S = np.einsum("ij,kj->ki", rot_mat, S)
 
     return S
 
@@ -108,14 +108,12 @@ def augm_params(is_train):
 
     rot_factor = cfg.AUG.rotate_factor
     # The rotation is a number in the area [-2*rotFactor, 2*rotFactor]
-    rot = min(2 * rot_factor,
-              max(-2 * rot_factor, np.random.randn() * rot_factor))
+    rot = min(2 * rot_factor, max(-2 * rot_factor, np.random.randn() * rot_factor))
 
     if random.uniform(0, 1) <= 0.5:
         rot = 0
 
     return flip, rot
-
 
 
 def transform_preds(coords, center, scale, output_size):
@@ -127,7 +125,6 @@ def transform_preds(coords, center, scale, output_size):
 
 
 def flip_back(output_flipped, matched_pairs):
-
     output_flipped = output_flipped[:, :, :, ::-1]
     for pair in matched_pairs:
         tmp = output_flipped[:, pair[0], :, :].copy()
@@ -137,12 +134,9 @@ def flip_back(output_flipped, matched_pairs):
         return output_flipped
 
 
-def get_affine_transform(center,
-                         scale,
-                         rot,
-                         output_size,
-                         shift=np.array([0, 0], dtype=np.float32),
-                         inv=0):
+def get_affine_transform(
+    center, scale, rot, output_size, shift=np.array([0, 0], dtype=np.float32), inv=0
+):
     if not isinstance(scale, np.ndarray) and not isinstance(scale, list):
         print(scale)
         scale = np.array([scale, scale])
@@ -174,7 +168,7 @@ def get_affine_transform(center,
 
 
 def affine_transform(pt, t):
-    new_pt = np.array([pt[0], pt[1], 1.]).T
+    new_pt = np.array([pt[0], pt[1], 1.0]).T
     new_pt = np.dot(t, new_pt)
     return new_pt[:2]
 
@@ -201,8 +195,14 @@ def flip_joints(joints, joints_vis, width, matched_parts):
 
     # Change left-right parts
     for pair in matched_parts:
-        joints[pair[0], :], joints[pair[1], :] = joints[pair[1], :], joints[pair[0], :].copy()
-        joints_vis[pair[0], :], joints_vis[pair[1], :] = joints_vis[pair[1], :], joints_vis[pair[0], :].copy()
+        joints[pair[0], :], joints[pair[1], :] = (
+            joints[pair[1], :],
+            joints[pair[0], :].copy(),
+        )
+        joints_vis[pair[0], :], joints_vis[pair[1], :] = (
+            joints_vis[pair[1], :],
+            joints_vis[pair[0], :].copy(),
+        )
 
     return joints, joints_vis
 
@@ -228,8 +228,9 @@ def multi_meshgrid(*args):
 def flip(tensor, dims):
     if not isinstance(dims, (tuple, list)):
         dims = [dims]
-    indices = [torch.arange(tensor.shape[dim] - 1, -1, -1,
-                            dtype=torch.int64) for dim in dims]
+    indices = [
+        torch.arange(tensor.shape[dim] - 1, -1, -1, dtype=torch.int64) for dim in dims
+    ]
     multi_indices = multi_meshgrid(*indices)
     final_indices = [slice(i) for i in tensor.shape]
     for i, dim in enumerate(dims):

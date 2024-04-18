@@ -99,7 +99,6 @@ def HEM(W, levels, rid=None):
     print("Heavy Edge Matching coarsening with Xavier version")
 
     for _ in range(levels):
-
         # CHOOSE THE WEIGHTS FOR THE PAIRING
         # weights = ones(N,1)       # metis weights
         weights = degree  # graclus weights
@@ -181,7 +180,6 @@ def HEM_one_level(rr, cc, vv, rid, weights):
                 if marked[nid]:
                     tval = 0.0
                 else:
-
                     # First approach
                     if 2 == 1:
                         tval = vv[rs + jj] * (1.0 / weights[tid] + 1.0 / weights[nid])
@@ -223,7 +221,6 @@ def compute_perm(parents):
         indices.append(list(range(M_last)))
 
     for parent in parents[::-1]:
-
         # Fake nodes go after real ones.
         pool_singeltons = len(parent)
 

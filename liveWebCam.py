@@ -8,10 +8,11 @@ import cv2
 from renderer import Renderer
 import time
 
-image_path = 'Tests/Parshwa.jpeg'
+image_path = "Tests/Parshwa.jpeg"
+
 
 def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
-    '''
+    """
     Convert predicted camera from cropped image coordinates
     to original image coordinates
     :param cam (ndarray, shape=(3,)): weak perspective camera in cropped img coordinates
@@ -19,40 +20,41 @@ def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
     :param img_width (int): original image width
     :param img_height (int): original image height
     :return:
-    '''
-    x, y, w, h = bbox[:,0], bbox[:,1], bbox[:,2], bbox[:, 3]
-    cx, cy, h = x + w/2, y + h/2, h
+    """
+    x, y, w, h = bbox[:, 0], bbox[:, 1], bbox[:, 2], bbox[:, 3]
+    cx, cy, h = x + w / 2, y + h / 2, h
     # cx, cy, h = bbox[:,0], bbox[:,1], bbox[:,2]
-    hw, hh = img_width / 2., img_height / 2.
-    sx = cam[:,0] * (1. / (img_width / h))
-    sy = cam[:,0] * (1. / (img_height / h))
-    tx = ((cx - hw) / hw / sx) + cam[:,1]
-    ty = ((cy - hh) / hh / sy) + cam[:,2]
+    hw, hh = img_width / 2.0, img_height / 2.0
+    sx = cam[:, 0] * (1.0 / (img_width / h))
+    sy = cam[:, 0] * (1.0 / (img_height / h))
+    tx = ((cx - hw) / hw / sx) + cam[:, 1]
+    ty = ((cy - hh) / hh / sy) + cam[:, 2]
     orig_cam = np.stack([sx, sy, tx, ty]).T
     return orig_cam
 
 
-def render(pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, mesh_face, color):
-
+def render(
+    pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, mesh_face, color
+):
     orig_cam = convert_crop_cam_to_orig_img(
-        cam=pred_cam,
-        bbox=bbox,
-        img_width=orig_width,
-        img_height=orig_height
+        cam=pred_cam, bbox=bbox, img_width=orig_width, img_height=orig_height
     )
 
     # Setup renderer for visualization
-    renderer = Renderer(mesh_face, resolution=(orig_width, orig_height), orig_img=True, wireframe=False)
+    renderer = Renderer(
+        mesh_face, resolution=(orig_width, orig_height), orig_img=True, wireframe=False
+    )
     renederd_img = renderer.render(
         orig_img,
         pred_verts,
         cam=orig_cam[0],
         color=color,
         mesh_filename=None,
-        rotate=False
+        rotate=False,
     )
 
     return renederd_img
+
 
 class OptimzeCamLayer(torch.nn.Module):
     def __init__(self):
@@ -66,11 +68,13 @@ class OptimzeCamLayer(torch.nn.Module):
         output = output * self.cam_param[None, :, :1] * self.img_res + self.img_res
         return output
 
+
 # Load Models
 GTRS = InferenceSession("GTRS.onnx")
-PoseDetector = torch.jit.load('PoseDetector.pt')
-mesh_model_face = np.load('SMPL.npy')
-joint_regressor = np.load('joint_regressor.npy')
+PoseDetector = torch.jit.load("PoseDetector.pt")
+mesh_model_face = np.load("SMPL.npy")
+joint_regressor = np.load("joint_regressor.npy")
+
 
 class VideoReader(object):
     def __init__(self, file_name):
@@ -83,7 +87,7 @@ class VideoReader(object):
     def __iter__(self):
         self.cap = cv2.VideoCapture(self.file_name)
         if not self.cap.isOpened():
-            raise IOError('Video {} cannot be opened'.format(self.file_name))
+            raise IOError("Video {} cannot be opened".format(self.file_name))
         return self
 
     def __next__(self):
@@ -92,7 +96,9 @@ class VideoReader(object):
             raise StopIteration
         return img
 
+
 video_reader = VideoReader(0)
+
 
 def optimize_cam_param(pred_mesh, joint_input, bbox):
     project_net = OptimzeCamLayer()
@@ -113,15 +119,15 @@ def optimize_cam_param(pred_mesh, joint_input, bbox):
         optimizer.step()
         if j == 500:
             for param_group in optimizer.param_groups:
-                param_group['lr'] = 0.05
+                param_group["lr"] = 0.05
         if j == 1000:
             for param_group in optimizer.param_groups:
-                param_group['lr'] = 0.001
-    
+                param_group["lr"] = 0.001
+
     return project_net.cam_param[0].detach().numpy()
 
+
 for img in video_reader:
-    
     pose = get_2d_pose(img, PoseDetector)
     if len(pose) == 0:
         continue
@@ -149,13 +155,20 @@ for img in video_reader:
     # print(cam_param)
     # print(cam_param_pred)
 
-    rendered_img = render(mesh[0], cam_param, bbox[None, :], orig_height, orig_width, orig_img, mesh_model_face, (0.63, 0.63, 0.87))
+    rendered_img = render(
+        mesh[0],
+        cam_param,
+        bbox[None, :],
+        orig_height,
+        orig_width,
+        orig_img,
+        mesh_model_face,
+        (0.63, 0.63, 0.87),
+    )
 
-    cv2.imshow('Rendered Image', rendered_img)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    cv2.imshow("Rendered Image", rendered_img)
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 cv2.destroyAllWindows()
 video_reader.cap.release()
-
-

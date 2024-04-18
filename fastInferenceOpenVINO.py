@@ -18,7 +18,7 @@ joint_input = get_2d_pose_from_output(pose, stride, scale, pad)
 endPose = time.time()
 
 
-print("Time taken for pose detection (in milliseconds): ", (endPose-startPose)*1000)
+print("Time taken for pose detection (in milliseconds): ", (endPose - startPose) * 1000)
 
 start = time.time()
 
@@ -27,6 +27,6 @@ mesh = GTRS.run(None, {"joint": joint_img})[0]
 
 end = time.time()
 
-print("Time taken for mesh reconstruction (in milliseconds): ", (end-start)*1000)
+print("Time taken for mesh reconstruction (in milliseconds): ", (end - start) * 1000)
 
 print(mesh)

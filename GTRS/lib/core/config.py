@@ -24,9 +24,9 @@ cfg.data_dir = osp.join(cfg.root_dir, "data")
 cfg.smpl_dir = osp.join(cfg.root_dir, "smplpytorch")
 cfg.mano_dir = osp.join(cfg.root_dir, "manopth")
 KST = datetime.timezone(datetime.timedelta(hours=9))
-save_folder = 'exp_' + str(datetime.datetime.now(tz=KST))[5:-19]
+save_folder = "exp_" + str(datetime.datetime.now(tz=KST))[5:-19]
 save_folder = save_folder.replace(" ", "_")
-save_folder_path = osp.join('experiment', save_folder)
+save_folder_path = osp.join("experiment", save_folder)
 
 cfg.output_dir = osp.join(cfg.root_dir, save_folder_path)
 cfg.graph_dir = osp.join(cfg.output_dir, "graph")

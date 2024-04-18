@@ -4,15 +4,14 @@ from smplpytorch.pytorch.smpl_layer import SMPL_Layer
 from display_utils import display_model
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cuda = False
     batch_size = 1
 
     # Create the SMPL layer
     smpl_layer = SMPL_Layer(
-        center_idx=0,
-        gender='neutral',
-        model_root='smplpytorch/native/models')
+        center_idx=0, gender="neutral", model_root="smplpytorch/native/models"
+    )
 
     # Generate random pose and shape parameters
     pose_params = torch.rand(batch_size, 72) * 0.2
@@ -31,10 +30,10 @@ if __name__ == '__main__':
     print(Jtr.shape)
     # Draw output vertices and joints
     display_model(
-        {'verts': verts.cpu().detach(),
-         'joints': Jtr.cpu().detach()},
+        {"verts": verts.cpu().detach(), "joints": Jtr.cpu().detach()},
         model_faces=smpl_layer.th_faces,
         with_joints=True,
         kintree_table=smpl_layer.kintree_table,
-        savepath='image.png',
-        show=True)
+        savepath="image.png",
+        show=True,
+    )

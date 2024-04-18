@@ -13,14 +13,14 @@ def add_path(path):
 
 this_dir = osp.dirname(__file__)
 
-lib_path = osp.join(this_dir, '..', 'lib')
+lib_path = osp.join(this_dir, "..", "lib")
 add_path(lib_path)
 
-data_path = osp.join(this_dir, '..', 'demo')
+data_path = osp.join(this_dir, "..", "demo")
 add_path(data_path)
 
-smpl_path = osp.join(this_dir, '..', 'smplpytorch')
+smpl_path = osp.join(this_dir, "..", "smplpytorch")
 add_path(smpl_path)
 
-mano_path = osp.join(this_dir, '..', 'manopth')
+mano_path = osp.join(this_dir, "..", "manopth")
 add_path(mano_path)
