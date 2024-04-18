@@ -40,7 +40,7 @@ def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
 
 
 def render(pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, color):
-    orig_cam = convert_crop_cam_to_orig_img(
+    orig_cam, *_ = convert_crop_cam_to_orig_img(
         cam=pred_cam, bbox=bbox, img_width=orig_width, img_height=orig_height
     )
 
@@ -48,7 +48,7 @@ def render(pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, color)
     renederd_img = renderer.render(
         orig_img,
         pred_verts,
-        cam=orig_cam[0],
+        cam=orig_cam,
         color=color,
         mesh_filename=None,
         rotate=False,
@@ -91,31 +91,31 @@ class VideoReader(object):
         return img
 
 
-def optimize_cam_param(pred_mesh, joint_input, bbox):
-    project_net = OptimzeCamLayer()
-    criterion = torch.nn.L1Loss()
-    optimizer = torch.optim.Adam(project_net.parameters(), lr=0.1)
-    pred_3d_joint = np.matmul(joint_regressor, pred_mesh)
-    project_net.train()
-    target_joint, _ = j2d_processing(joint_input.copy(), (500, 500), bbox, 0, 0, None)
-    target_joint = torch.Tensor(target_joint[None, :, :2])
+class CameraParam:
+    def __init__(self):
+        self.proj = OptimzeCamLayer()
+        self.criterion = torch.nn.L1Loss()
+        self.optimizer = torch.optim.Adam(self.proj.parameters(), lr=0.01)
+        self.proj.train()
 
-    for j in range(0, 1500):
-        # projection
-        pred_2d_joint = project_net(torch.Tensor(pred_3d_joint))
-        # print('target_joint', target_joint[:, :17, :])
-        loss = criterion(pred_2d_joint, target_joint[:, :17, :])
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        if j == 500:
-            for param_group in optimizer.param_groups:
-                param_group["lr"] = 0.05
-        if j == 1000:
-            for param_group in optimizer.param_groups:
-                param_group["lr"] = 0.001
+    def optimize(self, pred_mesh, joint_input, bbox, num_steps=100) -> np.ndarray:
+        pred_3d_joint = np.matmul(joint_regressor, pred_mesh)
+        target_joint, _ = j2d_processing(
+            joint_input.copy(), (500, 500), bbox, 0, 0, None
+        )
+        target_joint = torch.Tensor(target_joint[None, :, :2])
 
-    return project_net.cam_param[0].detach().numpy()
+        for _ in range(0, num_steps):
+            # projection
+            pred_2d_joint = self.proj(torch.Tensor(pred_3d_joint))
+            loss = self.criterion(pred_2d_joint, target_joint[:, :17, :])
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+        print("Loss: ", loss.item())
+
+        return self.proj.cam_param.detach().numpy()
 
 
 # Load Models
@@ -125,6 +125,7 @@ PoseDetector = torch.jit.load(
 )
 mesh_model_face = np.load("models/SMPL.npy")
 joint_regressor = np.load("models/joint_regressor.npy")
+camera_param = CameraParam()
 video_reader = VideoReader(0)
 # Get the first frame to set the renderer resolution
 (H, W, _) = next(iter(video_reader)).shape
@@ -132,40 +133,29 @@ renderer = Renderer(mesh_model_face, resolution=(W, H), orig_img=True, wireframe
 
 
 for img in video_reader:
+    orig_height, orig_width, _ = img.shape
+    orig_img = img.copy()
     time_start = time.time()
+    logger.debug("Frame start: %s", 0.0)
+
     pose = get_2d_pose(img, PoseDetector)
-    logger.debug("Get 2D pose: %s", time.time() - time_start)
     if len(pose) == 0:
         continue
+    logger.debug("Get 2D pose: %s", time.time() - time_start)
+
     joint_input = pose[0]
     joint_img = preprocess_joint(joint_input)
     logger.debug("Preprocess joint: %s", time.time() - time_start)
+
     bbox = get_bbox(joint_input)
     logger.debug("Get bbox: %s", time.time() - time_start)
-    orig_height, orig_width, _ = img.shape
-    orig_img = img.copy()
-    logger.debug("Copy image: %s", time.time() - time_start)
+
     mesh = GTRS.run(None, {"joint": joint_img})[0]
     logger.debug("GTRS run: %s", time.time() - time_start)
 
-    cam_param_pred = optimize_cam_param(mesh, joint_input, bbox)
+    cam_param_pred = camera_param.optimize(mesh, joint_input, bbox)
+    cam_param = torch.Tensor(cam_param_pred)
     logger.debug("Optimize cam param: %s", time.time() - time_start)
-
-    cam_param = np.ndarray((1, 3))
-
-    mean_x = mesh[0, :, 0].min()
-    mean_y = mesh[0, :, 1].min()
-    mean_z = mesh[0, :, 2].min()
-
-    cam_param[0, 1] = -1 * mean_y
-    cam_param[0, 2] = mean_x
-    cam_param[0, 0] = mean_z + 1
-
-    cam_param = torch.Tensor(cam_param)
-    logger.debug("Cam param: %s", time.time() - time_start)
-
-    # print(cam_param)
-    # print(cam_param_pred)
 
     rendered_img = render(
         mesh[0],
@@ -179,7 +169,9 @@ for img in video_reader:
     logger.debug("Render image: %s", time.time() - time_start)
 
     cv2.imshow("Rendered Image", rendered_img)
+    # FIXME: The rendered mesh is like a transposed image
     logger.debug("Show image: %s", time.time() - time_start)
+
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
