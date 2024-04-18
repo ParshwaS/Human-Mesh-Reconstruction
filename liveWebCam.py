@@ -70,10 +70,12 @@ class OptimzeCamLayer(torch.nn.Module):
 
 
 # Load Models
-GTRS = InferenceSession("GTRS.onnx")
-PoseDetector = torch.jit.load("PoseDetector.pt")
-mesh_model_face = np.load("SMPL.npy")
-joint_regressor = np.load("joint_regressor.npy")
+GTRS = InferenceSession("models/GTRS.onnx")
+PoseDetector = torch.jit.load(
+    "models/PoseDetector.pt", map_location=torch.device("cpu")
+)
+mesh_model_face = np.load("models/SMPL.npy")
+joint_regressor = np.load("models/joint_regressor.npy")
 
 
 class VideoReader(object):

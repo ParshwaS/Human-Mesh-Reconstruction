@@ -7,9 +7,9 @@ import time
 image_path = "Tests/Parshwa.jpeg"
 
 # Load Models
-GTRS = torch.jit.load("GTRS.pt", map_location=torch.device("cpu"))
-PoseDetector = torch.jit.load("PoseDetector.pt", map_location=torch.device("cpu"))
-mesh_model_face = np.load("SMPL.npy")
+GTRS = torch.jit.load("models/GTRS.pt", map_location=torch.device("cpu"))
+PoseDetector = torch.jit.load("models/PoseDetector.pt", map_location=torch.device("cpu"))
+mesh_model_face = np.load("models/SMPL.npy")
 
 startPose = time.time()
 

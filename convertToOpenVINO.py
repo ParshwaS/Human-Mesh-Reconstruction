@@ -5,8 +5,8 @@ from helperGTRS import preprocess_joint
 from helperPoseDetector import normalize, pad_width, extract_keypoints, group_keypoints
 
 # Load Models
-GTRS = torch.jit.load("GTRS.pt")
-PoseDetector = torch.jit.load("PoseDetector.pt")
+GTRS = torch.jit.load("models/GTRS.pt")
+PoseDetector = torch.jit.load("models/PoseDetector.pt")
 
 # Convert to OpenVINO
 GTRS.eval().to("cpu")
@@ -41,7 +41,7 @@ if not cpu:
 traced_PoseDetector = torch.onnx.export(
     PoseDetector,
     tensor_img,
-    "PoseDetector.onnx",
+    "models/PoseDetector.onnx",
     verbose=True,
     input_names=["image"],
     output_names=["stages_output"],
@@ -104,7 +104,7 @@ joint_img = torch.Tensor(joint_img)
 traced_GTRS = torch.onnx.export(
     GTRS,
     joint_img,
-    "GTRS.onnx",
+    "models/GTRS.onnx",
     verbose=True,
     input_names=["joint"],
     output_names=["mesh", "3dpose"],

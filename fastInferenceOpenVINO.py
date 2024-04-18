@@ -4,8 +4,8 @@ import time
 from helperGTRS import preprocess_joint
 from helperPoseDetector import get_image_tensor, get_2d_pose_from_output
 
-poseDetect = InferenceSession("PoseDetector.onnx")
-GTRS = InferenceSession("GTRS.onnx")
+poseDetect = InferenceSession("models/PoseDetector.onnx")
+GTRS = InferenceSession("models/GTRS.onnx")
 
 image_path = "Tests/Samarth.jpeg"
 

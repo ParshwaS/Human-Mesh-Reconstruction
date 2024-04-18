@@ -10,10 +10,10 @@ image_path = "Tests/Parshwa.jpeg"
 pose, net = detect_2d_pose(image_path)
 
 script_module = torch.jit.script(net)
-script_module.save("PoseDetector.pt")
+script_module.save("models/PoseDetector.pt")
 
 # Load Model
-GTRS = torch.jit.load("GTRS.pt")
+GTRS = torch.jit.load("models/GTRS.pt")
 
 joint_input = pose[0]
 
