@@ -137,7 +137,7 @@ def save_checkpoint(states, epoch, is_best=None):
         torch.save(states, os.path.join(output_dir, "best.pth.tar"))
 
 
-def load_checkpoint(load_dir, epoch=0, pick_best=False):
+def load_checkpoint(load_dir, epoch=0, pick_best=False, map_location="cuda"):
     checkpoint_dir = ""  # os.path.join(load_dir, 'checkpoint.pth.tar')
     if pick_best:
         checkpoint_dir = os.path.join(load_dir, "best.pth.tar")
@@ -148,7 +148,7 @@ def load_checkpoint(load_dir, epoch=0, pick_best=False):
 
     try:
         print(f"Fetch model weight from {checkpoint_dir}")
-        checkpoint = torch.load(checkpoint_dir, map_location="cuda")
+        checkpoint = torch.load(checkpoint_dir, map_location=map_location)
         return checkpoint
     except Exception as e:
         raise ValueError("No checkpoint exists!\n", e)

@@ -13,7 +13,11 @@ import numpy as np
 import colorsys
 import json
 import argparse
-
+from PoseDetector.models.with_mobilenet import PoseEstimationWithMobileNet
+from PoseDetector.modules.keypoints import extract_keypoints, group_keypoints
+from PoseDetector.modules.load_state import load_state
+from PoseDetector.modules.pose import Pose, track_poses
+from PoseDetector.val import normalize, pad_width
 
 def add_path(path):
     if path not in sys.path:
@@ -42,10 +46,11 @@ from vis import vis_2d_keypoints, vis_coco_skeleton
 from _mano import MANO
 from smpl import SMPL
 
-def get_model(trained_model='3dpw'):
+def get_model(trained_model='3dpw', device='cuda'):
 
     mesh_model = SMPL()
     joint_regressor = mesh_model.joint_regressor_coco
+    np.save('joint_regressor.npy', mesh_model.joint_regressor_coco)
     joint_num = 19
     skeleton = (
         (1, 2), (0, 1), (0, 2), (2, 4), (1, 3), (6, 8), (8, 10), (5, 7), (7, 9), (12, 14), (14, 16), (11, 13),
@@ -59,7 +64,7 @@ def get_model(trained_model='3dpw'):
         model_chk_path = osp.join(osp.dirname(__file__),'GTRS/experiment/gtrs_3dpw')
 
     model = models.GTRS_net.get_model(joint_num, graph_L)
-    checkpoint = load_checkpoint(load_dir=model_chk_path)
+    checkpoint = load_checkpoint(load_dir=model_chk_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     return model, joint_regressor, joint_num, skeleton, graph_L, graph_perm_reverse, mesh_model
@@ -108,9 +113,7 @@ def render(result, orig_height, orig_width, orig_img, mesh_face, color):
 
     return renederd_img
 
-def optimize_cam_param(project_net, joint_input, crop_size, model, joint_regressor):
-    
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+def optimize_cam_param(project_net, joint_input, crop_size, model, joint_regressor, device='cuda'):
     
     bbox = get_bbox(joint_input)
     bbox1 = process_bbox(bbox.copy(), aspect_ratio=1.0, scale=1.25)
@@ -161,26 +164,90 @@ def optimize_cam_param(project_net, joint_input, crop_size, model, joint_regress
 
     return out
 
-def main(args):
+def infer_fast_2d_pose(net, img, net_input_height_size, stride, upsample_ratio, cpu,
+               pad_value=(0, 0, 0), img_mean=np.array([128, 128, 128], np.float32), img_scale=np.float32(1/256)):
+    height, width, _ = img.shape
+    scale = net_input_height_size / height
 
-    input_path = args.input_path
-    output_path = args.output_path
+    scaled_img = cv2.resize(img, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
+    scaled_img = normalize(scaled_img, img_mean, img_scale)
+    min_dims = [net_input_height_size, max(scaled_img.shape[1], net_input_height_size)]
+    padded_img, pad = pad_width(scaled_img, stride, pad_value, min_dims)
+
+    tensor_img = torch.from_numpy(padded_img).permute(2, 0, 1).unsqueeze(0).float()
+    if not cpu:
+        tensor_img = tensor_img.cuda()
+
+    stages_output = net(tensor_img)
+
+    stage2_heatmaps = stages_output[-2]
+    heatmaps = np.transpose(stage2_heatmaps.squeeze().cpu().data.numpy(), (1, 2, 0))
+    heatmaps = cv2.resize(heatmaps, (0, 0), fx=upsample_ratio, fy=upsample_ratio, interpolation=cv2.INTER_CUBIC)
+
+    stage2_pafs = stages_output[-1]
+    pafs = np.transpose(stage2_pafs.squeeze().cpu().data.numpy(), (1, 2, 0))
+    pafs = cv2.resize(pafs, (0, 0), fx=upsample_ratio, fy=upsample_ratio, interpolation=cv2.INTER_CUBIC)
+
+    return heatmaps, pafs, scale, pad
+
+def detect_2d_pose(image_path, device='cuda'):
+    net = PoseEstimationWithMobileNet()
+    checkpoint = torch.load('PoseDetector/checkpoint_iter_370000.pth', map_location='cpu')
+    load_state(net, checkpoint)
+    cpu = False if device == 'cuda' else True
+    net = net.eval()
+    if not cpu:
+        net = net.cuda()
+    img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    height_size = 256
+    stride = 8
+    upsample_ratio = 4
+    num_keypoints = Pose.num_kpts
+    heatmaps, pafs, scale, pad = infer_fast_2d_pose(net, img, height_size, stride, upsample_ratio, cpu)
+
+    total_keypoints_num = 0
+    all_keypoints_by_type = []
+    for kpt_idx in range(num_keypoints):  # 19th for bg
+        total_keypoints_num += extract_keypoints(heatmaps[:, :, kpt_idx], all_keypoints_by_type, total_keypoints_num)
+
+    pose_entries, all_keypoints = group_keypoints(all_keypoints_by_type, pafs)
+    for kpt_id in range(all_keypoints.shape[0]):
+        all_keypoints[kpt_id, 0] = (all_keypoints[kpt_id, 0] * stride / upsample_ratio - pad[1]) / scale
+        all_keypoints[kpt_id, 1] = (all_keypoints[kpt_id, 1] * stride / upsample_ratio - pad[0]) / scale
+    all_poses = []
+    for n in range(len(pose_entries)):
+        if len(pose_entries[n]) == 0:
+            continue
+        pose_keypoints = np.ones((num_keypoints, 2), dtype=np.int32) * -1
+        for kpt_id in range(num_keypoints):
+            if pose_entries[n][kpt_id] != -1.0:  # keypoint was found
+                pose_keypoints[kpt_id, 0] = int(all_keypoints[int(pose_entries[n][kpt_id]), 0])
+                pose_keypoints[kpt_id, 1] = int(all_keypoints[int(pose_entries[n][kpt_id]), 1])
+        all_poses.append(pose_keypoints)
+
+    return all_poses
+
+def get_3d_mesh(input_img, output_path):
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-    model, joint_regressor, joint_num, skeleton, graph_L, graph_perm_reverse, mesh_model = get_model()
+    model, joint_regressor, joint_num, skeleton, graph_L, graph_perm_reverse, mesh_model = get_model(device=device)
     model = model.to(device)
     joint_regressor = torch.Tensor(joint_regressor).to(device)
     coco_joints_name = ('Nose', 'L_Eye', 'R_Eye', 'L_Ear', 'R_Ear', 'L_Shoulder', 'R_Shoulder', 'L_Elbow', 'R_Elbow', 'L_Wrist', 'R_Wrist', 'L_Hip', 'R_Hip', 'L_Knee', 'R_Knee', 'L_Ankle', 'R_Ankle', 'Pelvis', 'Neck')
     project_net = models.project_net.get_model().to(device)
-    joint_input = np.load(input_path)
+
+    joint_input = np.array(detect_2d_pose(input_img, device=device))[0]
+
+    joint_input = np.delete(joint_input, (1), axis=0)
+    idx = [0, 14, 13, 16, 15, 4, 1, 5, 2, 6, 3, 10, 7, 11, 8, 12, 9]
+    joint_input = joint_input[idx]
 
     joint_input = joint_input.reshape(17,-1)
 
-    input_name = input_path.split('/')[-1].split('.')[0]
-    output_path = args.output_path + '/' + input_name
-    if not os.path.exists(args.output_path):
-        os.mkdir(args.output_path)
+    input_name = input_img.split('/')[-1].split('.')[0]
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
+    output_path = output_path + '/' + input_name
 
     # Adding pelvis and neck
 
@@ -204,7 +271,7 @@ def main(args):
         orig_img = np.zeros((orig_height, orig_width,3))
 
     virtual_crop_size = 500
-    out = optimize_cam_param(project_net, joint_input, crop_size=virtual_crop_size, model=model, joint_regressor=joint_regressor)
+    out = optimize_cam_param(project_net, joint_input, crop_size=virtual_crop_size, model=model, joint_regressor=joint_regressor, device=device)
 
     # vis mesh
     color = (0.63, 0.63, 0.87)
@@ -218,4 +285,4 @@ if __name__ == '__main__':
     parser.add_argument('--input_img', type=str, default='.', help='input image path')
     parser.add_argument('--output_path', type=str, default='.', help='output path')
     args = parser.parse_args()
-    main(args)
+    get_3d_mesh(args.input_img, args.output_path)
