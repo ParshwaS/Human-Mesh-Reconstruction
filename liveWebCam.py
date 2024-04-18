@@ -1,14 +1,20 @@
-from onnxruntime import InferenceSession
-import torch
-import math
-import numpy as np
-from helperGTRS import preprocess_joint, save_obj, j2d_processing, get_bbox
-from helperPoseDetector import get_2d_pose
-import cv2
-from renderer import Renderer
 import time
+from logging import Logger, FileHandler
+from datetime import datetime
 
-image_path = "Tests/Parshwa.jpeg"
+import cv2
+import numpy as np
+import torch
+from onnxruntime import InferenceSession
+
+from helperGTRS import get_bbox, j2d_processing, preprocess_joint
+from helperPoseDetector import get_2d_pose
+from renderer import Renderer
+
+logger = Logger("LiveWebCam", level="DEBUG")
+logger.addHandler(
+    FileHandler(f"logs/liveWebCam-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log")
+)
 
 
 def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
@@ -33,17 +39,12 @@ def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
     return orig_cam
 
 
-def render(
-    pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, mesh_face, color
-):
+def render(pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, color):
     orig_cam = convert_crop_cam_to_orig_img(
         cam=pred_cam, bbox=bbox, img_width=orig_width, img_height=orig_height
     )
 
     # Setup renderer for visualization
-    renderer = Renderer(
-        mesh_face, resolution=(orig_width, orig_height), orig_img=True, wireframe=False
-    )
     renederd_img = renderer.render(
         orig_img,
         pred_verts,
@@ -69,15 +70,6 @@ class OptimzeCamLayer(torch.nn.Module):
         return output
 
 
-# Load Models
-GTRS = InferenceSession("models/GTRS.onnx")
-PoseDetector = torch.jit.load(
-    "models/PoseDetector.pt", map_location=torch.device("cpu")
-)
-mesh_model_face = np.load("models/SMPL.npy")
-joint_regressor = np.load("models/joint_regressor.npy")
-
-
 class VideoReader(object):
     def __init__(self, file_name):
         self.file_name = file_name
@@ -97,9 +89,6 @@ class VideoReader(object):
         if not was_read:
             raise StopIteration
         return img
-
-
-video_reader = VideoReader(0)
 
 
 def optimize_cam_param(pred_mesh, joint_input, bbox):
@@ -129,18 +118,38 @@ def optimize_cam_param(pred_mesh, joint_input, bbox):
     return project_net.cam_param[0].detach().numpy()
 
 
+# Load Models
+GTRS = InferenceSession("models/GTRS.onnx")
+PoseDetector = torch.jit.load(
+    "models/PoseDetector.pt", map_location=torch.device("cpu")
+)
+mesh_model_face = np.load("models/SMPL.npy")
+joint_regressor = np.load("models/joint_regressor.npy")
+video_reader = VideoReader(0)
+# Get the first frame to set the renderer resolution
+(H, W, _) = next(iter(video_reader)).shape
+renderer = Renderer(mesh_model_face, resolution=(W, H), orig_img=True, wireframe=False)
+
+
 for img in video_reader:
+    time_start = time.time()
     pose = get_2d_pose(img, PoseDetector)
+    logger.debug("Get 2D pose: %s", time.time() - time_start)
     if len(pose) == 0:
         continue
     joint_input = pose[0]
     joint_img = preprocess_joint(joint_input)
+    logger.debug("Preprocess joint: %s", time.time() - time_start)
     bbox = get_bbox(joint_input)
+    logger.debug("Get bbox: %s", time.time() - time_start)
     orig_height, orig_width, _ = img.shape
     orig_img = img.copy()
+    logger.debug("Copy image: %s", time.time() - time_start)
     mesh = GTRS.run(None, {"joint": joint_img})[0]
+    logger.debug("GTRS run: %s", time.time() - time_start)
 
     cam_param_pred = optimize_cam_param(mesh, joint_input, bbox)
+    logger.debug("Optimize cam param: %s", time.time() - time_start)
 
     cam_param = np.ndarray((1, 3))
 
@@ -153,6 +162,7 @@ for img in video_reader:
     cam_param[0, 0] = mean_z + 1
 
     cam_param = torch.Tensor(cam_param)
+    logger.debug("Cam param: %s", time.time() - time_start)
 
     # print(cam_param)
     # print(cam_param_pred)
@@ -164,11 +174,12 @@ for img in video_reader:
         orig_height,
         orig_width,
         orig_img,
-        mesh_model_face,
         (0.63, 0.63, 0.87),
     )
+    logger.debug("Render image: %s", time.time() - time_start)
 
     cv2.imshow("Rendered Image", rendered_img)
+    logger.debug("Show image: %s", time.time() - time_start)
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
