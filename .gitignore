@@ -1,4 +1,5 @@
 *.pth*
 __pycache__/
 *.obj
-logs/
+logs/*.log
+logs/*.png
