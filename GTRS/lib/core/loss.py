@@ -12,7 +12,7 @@ class CoordLoss(nn.Module):
         super(CoordLoss, self).__init__()
 
         self.has_valid = has_valid
-        self.criterion = nn.L1Loss(reduction='mean')
+        self.criterion = nn.L1Loss(reduction="mean")
 
     def forward(self, pred, target, target_valid):
         if self.has_valid:
@@ -42,14 +42,17 @@ class LaplacianLoss(nn.Module):
         laplacian[r, c] = -laplacian.sum(1)
 
         for i in range(self.nv):
-            laplacian[i, :] /= (laplacian[i, i] + 1e-8)
+            laplacian[i, :] /= laplacian[i, i] + 1e-8
 
-        self.register_buffer('laplacian', torch.from_numpy(laplacian).cuda().float())
+        self.register_buffer("laplacian", torch.from_numpy(laplacian).cuda().float())
 
     def forward(self, x):
         batch_size = x.size(0)
 
-        x = torch.cat([torch.matmul(self.laplacian, x[i])[None, :, :] for i in range(batch_size)], 0)
+        x = torch.cat(
+            [torch.matmul(self.laplacian, x[i])[None, :, :] for i in range(batch_size)],
+            0,
+        )
         # x = torch.cat([torch.matmul(self.laplacian, x[i])[None, :, :] for i in range(batch_size)], 0)
 
         x = x.pow(2).sum(2)
@@ -79,7 +82,9 @@ class NormalVectorLoss(nn.Module):
         v2_gt = coord_gt[:, face[:, 2], :] - coord_gt[:, face[:, 0], :]
         v2_gt = F.normalize(v2_gt, p=2, dim=2)  # L2 normalize to make unit vector
         normal_gt = torch.cross(v1_gt, v2_gt, dim=2)
-        normal_gt = F.normalize(normal_gt, p=2, dim=2)  # L2 normalize to make unit vector
+        normal_gt = F.normalize(
+            normal_gt, p=2, dim=2
+        )  # L2 normalize to make unit vector
 
         cos1 = torch.abs(torch.sum(v1_out * normal_gt, 2, keepdim=True))
         cos2 = torch.abs(torch.sum(v2_out * normal_gt, 2, keepdim=True))
@@ -97,16 +102,49 @@ class EdgeLengthLoss(nn.Module):
         face = torch.LongTensor(self.face).cuda()
 
         d1_out = torch.sqrt(
-            torch.sum((coord_out[:, face[:, 0], :] - coord_out[:, face[:, 1], :]) ** 2, 2, keepdim=True))
+            torch.sum(
+                (coord_out[:, face[:, 0], :] - coord_out[:, face[:, 1], :]) ** 2,
+                2,
+                keepdim=True,
+            )
+        )
         d2_out = torch.sqrt(
-            torch.sum((coord_out[:, face[:, 0], :] - coord_out[:, face[:, 2], :]) ** 2, 2, keepdim=True))
+            torch.sum(
+                (coord_out[:, face[:, 0], :] - coord_out[:, face[:, 2], :]) ** 2,
+                2,
+                keepdim=True,
+            )
+        )
         d3_out = torch.sqrt(
-            torch.sum((coord_out[:, face[:, 1], :] - coord_out[:, face[:, 2], :]) ** 2, 2, keepdim=True))
+            torch.sum(
+                (coord_out[:, face[:, 1], :] - coord_out[:, face[:, 2], :]) ** 2,
+                2,
+                keepdim=True,
+            )
+        )
 
-        d1_gt = torch.sqrt(torch.sum((coord_gt[:, face[:, 0], :] - coord_gt[:, face[:, 1], :]) ** 2, 2, keepdim=True))
-        d2_gt = torch.sqrt(torch.sum((coord_gt[:, face[:, 0], :] - coord_gt[:, face[:, 2], :]) ** 2, 2, keepdim=True))
-        d3_gt = torch.sqrt(torch.sum((coord_gt[:, face[:, 1], :] - coord_gt[:, face[:, 2], :]) ** 2, 2, keepdim=True))
- 
+        d1_gt = torch.sqrt(
+            torch.sum(
+                (coord_gt[:, face[:, 0], :] - coord_gt[:, face[:, 1], :]) ** 2,
+                2,
+                keepdim=True,
+            )
+        )
+        d2_gt = torch.sqrt(
+            torch.sum(
+                (coord_gt[:, face[:, 0], :] - coord_gt[:, face[:, 2], :]) ** 2,
+                2,
+                keepdim=True,
+            )
+        )
+        d3_gt = torch.sqrt(
+            torch.sum(
+                (coord_gt[:, face[:, 1], :] - coord_gt[:, face[:, 2], :]) ** 2,
+                2,
+                keepdim=True,
+            )
+        )
+
         diff1 = torch.abs(d1_out - d1_gt)
         diff2 = torch.abs(d2_out - d2_gt)
         diff3 = torch.abs(d3_out - d3_gt)
@@ -115,6 +153,12 @@ class EdgeLengthLoss(nn.Module):
 
 
 def get_loss(faces):
-    loss = CoordLoss(has_valid=True), NormalVectorLoss(faces), EdgeLengthLoss(faces), CoordLoss(has_valid=True), CoordLoss(has_valid=True)
+    loss = (
+        CoordLoss(has_valid=True),
+        NormalVectorLoss(faces),
+        EdgeLengthLoss(faces),
+        CoordLoss(has_valid=True),
+        CoordLoss(has_valid=True),
+    )
 
     return loss

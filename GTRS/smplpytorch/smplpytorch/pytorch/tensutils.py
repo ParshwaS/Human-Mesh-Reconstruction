@@ -4,14 +4,14 @@ from smplpytorch.pytorch import rodrigues_layer
 
 
 def th_posemap_axisang(pose_vectors):
-    '''
+    """
     Converts axis-angle to rotmat
     pose_vectors (Tensor (batch_size x 72)): pose parameters in axis-angle representation
-    '''
+    """
     rot_nb = int(pose_vectors.shape[1] / 3)
     rot_mats = []
     for joint_idx in range(rot_nb):
-        axis_ang = pose_vectors[:, joint_idx * 3:(joint_idx + 1) * 3]
+        axis_ang = pose_vectors[:, joint_idx * 3 : (joint_idx + 1) * 3]
         rot_mat = rodrigues_layer.batch_rodrigues(axis_ang)
         rot_mats.append(rot_mat)
 
@@ -40,9 +40,11 @@ def th_pack(tensor):
 
 def subtract_flat_id(rot_mats):
     # Subtracts identity as a flattened tensor
-    id_flat = torch.eye(
-        3, dtype=rot_mats.dtype, device=rot_mats.device).view(1, 9).repeat(
-            rot_mats.shape[0], 23)
+    id_flat = (
+        torch.eye(3, dtype=rot_mats.dtype, device=rot_mats.device)
+        .view(1, 9)
+        .repeat(rot_mats.shape[0], 23)
+    )
     # id_flat.requires_grad = False
     results = rot_mats - id_flat
     return results

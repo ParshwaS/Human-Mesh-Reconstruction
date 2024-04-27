@@ -6,11 +6,41 @@ from easydict import EasyDict as edict
 # TEMP
 cfg = edict()
 
-cfg.kps_sigmas = np.array([
-       .26, .25, .25, .35, .35, .79, .79, .72, .72, .62, .62, 1.07, 1.07, .87,
-       .87, .89, .89]) / 10.0
+cfg.kps_sigmas = (
+    np.array(
+        [
+            0.26,
+            0.25,
+            0.25,
+            0.35,
+            0.35,
+            0.79,
+            0.79,
+            0.72,
+            0.72,
+            0.62,
+            0.62,
+            1.07,
+            1.07,
+            0.87,
+            0.87,
+            0.89,
+            0.89,
+        ]
+    )
+    / 10.0
+)
 cfg.num_kps = 17
-cfg.kps_symmetry = ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16))
+cfg.kps_symmetry = (
+    (1, 2),
+    (3, 4),
+    (5, 6),
+    (7, 8),
+    (9, 10),
+    (11, 12),
+    (13, 14),
+    (15, 16),
+)
 near_joints = np.zeros((1, cfg.num_kps, 3))
 
 
@@ -29,7 +59,6 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
 
     N = 500
     for j in range(cfg.num_kps):
-
         # source keypoint position candidates to generate error on that (gt, swap, inv, swap+inv)
         coord_list = []
         # on top of gt
@@ -40,7 +69,7 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
         coord_list.append(swap_coord)
         # on top of inv gt, swap inv gt
         pair_exist = False
-        for (q, w) in cfg.kps_symmetry:
+        for q, w in cfg.kps_symmetry:
             if j == q or j == w:
                 if j == q:
                     pair_idx = w
@@ -70,14 +99,14 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
         if num_valid_joint <= 10:
             if j == 0 or (j >= 13 and j <= 16):  # nose, ankle, knee
                 jitter_prob = 0.15
-            elif (j >= 1 and j <= 10):  # ear, eye, upper body
+            elif j >= 1 and j <= 10:  # ear, eye, upper body
                 jitter_prob = 0.20
             else:  # hip
                 jitter_prob = 0.25
         else:
             if j == 0 or (j >= 13 and j <= 16):  # nose, ankle, knee
                 jitter_prob = 0.10
-            elif (j >= 1 and j <= 10):  # ear, eye, upper body
+            elif j >= 1 and j <= 10:  # ear, eye, upper body
                 jitter_prob = 0.15
             else:  # hip
                 jitter_prob = 0.20
@@ -90,8 +119,13 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
         for i in range(len(tot_coord_list)):
             if i == jitter_idx:
                 continue
-            dist_mask = np.logical_and(dist_mask,
-                                       np.sqrt((tot_coord_list[i][0] - x) ** 2 + (tot_coord_list[i][1] - y) ** 2) > r)
+            dist_mask = np.logical_and(
+                dist_mask,
+                np.sqrt(
+                    (tot_coord_list[i][0] - x) ** 2 + (tot_coord_list[i][1] - y) ** 2
+                )
+                > r,
+            )
         x = x[dist_mask].reshape(-1)
         y = y[dist_mask].reshape(-1)
         if len(x) > 0:
@@ -134,9 +168,14 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
             for i in range(len(tot_coord_list)):
                 if i == miss_idx:
                     continue
-                dist_mask = np.logical_and(dist_mask,
-                                           np.sqrt((tot_coord_list[i][0] - x) ** 2 + (tot_coord_list[i][1] - y) ** 2) >
-                                           ks_50_dist[j])
+                dist_mask = np.logical_and(
+                    dist_mask,
+                    np.sqrt(
+                        (tot_coord_list[i][0] - x) ** 2
+                        + (tot_coord_list[i][1] - y) ** 2
+                    )
+                    > ks_50_dist[j],
+                )
             x = x[dist_mask].reshape(-1)
             y = y[dist_mask].reshape(-1)
             if len(x) > 0:
@@ -167,15 +206,21 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
         if pair_exist and joints[pair_idx, 2] > 0:
             angle = np.random.uniform(0, 2 * math.pi, [N])
             r = np.random.uniform(0, ks_50_dist[j], [N])
-            inv_idx = (len(coord_list[0]) + len(coord_list[1]))
+            inv_idx = len(coord_list[0]) + len(coord_list[1])
             x = tot_coord_list[inv_idx][0] + r * np.cos(angle)
             y = tot_coord_list[inv_idx][1] + r * np.sin(angle)
             dist_mask = True
             for i in range(len(tot_coord_list)):
                 if i == inv_idx:
                     continue
-                dist_mask = np.logical_and(dist_mask, np.sqrt(
-                    (tot_coord_list[i][0] - x) ** 2 + (tot_coord_list[i][1] - y) ** 2) > r)
+                dist_mask = np.logical_and(
+                    dist_mask,
+                    np.sqrt(
+                        (tot_coord_list[i][0] - x) ** 2
+                        + (tot_coord_list[i][1] - y) ** 2
+                    )
+                    > r,
+                )
             x = x[dist_mask].reshape(-1)
             y = y[dist_mask].reshape(-1)
             if len(x) > 0:
@@ -186,8 +231,10 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
 
         # swap prob
         synth_swap = np.zeros(3)
-        swap_exist = False  #(len(coord_list[1]) > 0) or (len(coord_list[3]) > 0)
-        if (num_valid_joint <= 10 and num_overlap > 0) or (num_valid_joint <= 15 and num_overlap >= 3):
+        swap_exist = False  # (len(coord_list[1]) > 0) or (len(coord_list[3]) > 0)
+        if (num_valid_joint <= 10 and num_overlap > 0) or (
+            num_valid_joint <= 15 and num_overlap >= 3
+        ):
             if j >= 0 and j <= 4:  # face
                 swap_prob = 0.02
             elif j >= 5 and j <= 10:  # upper body
@@ -202,7 +249,6 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
             else:  # lower body
                 swap_prob = 0.03
         if swap_exist:
-
             swap_pt_list = []
             for swap_idx in range(len(tot_coord_list)):
                 if swap_idx == 0 or swap_idx == len(coord_list[0]) + len(coord_list[1]):
@@ -214,8 +260,14 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
                 dist_mask = True
                 for i in range(len(tot_coord_list)):
                     if i == 0 or i == len(coord_list[0]) + len(coord_list[1]):
-                        dist_mask = np.logical_and(dist_mask, np.sqrt(
-                            (tot_coord_list[i][0] - x) ** 2 + (tot_coord_list[i][1] - y) ** 2) > r)
+                        dist_mask = np.logical_and(
+                            dist_mask,
+                            np.sqrt(
+                                (tot_coord_list[i][0] - x) ** 2
+                                + (tot_coord_list[i][1] - y) ** 2
+                            )
+                            > r,
+                        )
                 x = x[dist_mask].reshape(-1)
                 y = y[dist_mask].reshape(-1)
                 if len(x) > 0:
@@ -230,7 +282,7 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
         # TEMP
         swap_prob = 0
 
-                # good prob
+        # good prob
         synth_good = np.zeros(3)
         good_prob = 1 - (jitter_prob + miss_prob + inv_prob + swap_prob)
         assert good_prob >= 0
@@ -243,8 +295,13 @@ def synthesize_pose(joints, area, num_overlap=0):  # near_joints
         for i in range(len(tot_coord_list)):
             if i == good_idx:
                 continue
-            dist_mask = np.logical_and(dist_mask,
-                                       np.sqrt((tot_coord_list[i][0] - x) ** 2 + (tot_coord_list[i][1] - y) ** 2) > r)
+            dist_mask = np.logical_and(
+                dist_mask,
+                np.sqrt(
+                    (tot_coord_list[i][0] - x) ** 2 + (tot_coord_list[i][1] - y) ** 2
+                )
+                > r,
+            )
         x = x[dist_mask].reshape(-1)
         y = y[dist_mask].reshape(-1)
         if len(x) > 0:

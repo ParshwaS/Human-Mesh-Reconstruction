@@ -1,4 +1,5 @@
 import os
+
 # os.environ['PYOPENGL_PLATFORM'] = 'egl'# 'osmesa'
 import torch
 import numpy as np
@@ -10,12 +11,14 @@ from pyrender.constants import RenderFlags
 
 
 class WeakPerspectiveCamera(pyrender.Camera):
-    def __init__(self,
-                 scale,
-                 translation,
-                 znear=pyrender.camera.DEFAULT_Z_NEAR,
-                 zfar=None,
-                 name=None):
+    def __init__(
+        self,
+        scale,
+        translation,
+        znear=pyrender.camera.DEFAULT_Z_NEAR,
+        zfar=None,
+        name=None,
+    ):
         super(WeakPerspectiveCamera, self).__init__(
             znear=znear,
             zfar=zfar,
@@ -33,8 +36,9 @@ class WeakPerspectiveCamera(pyrender.Camera):
         P[2, 2] = -1
         return P
 
+
 class Renderer:
-    def __init__(self, faces, resolution=(224,224), orig_img=False, wireframe=False):
+    def __init__(self, faces, resolution=(224, 224), orig_img=False, wireframe=False):
         self.resolution = resolution
 
         self.faces = faces
@@ -43,11 +47,13 @@ class Renderer:
         self.renderer = pyrender.OffscreenRenderer(
             viewport_width=self.resolution[0],
             viewport_height=self.resolution[1],
-            point_size=1.0
+            point_size=1.0,
         )
 
         # set the scene
-        self.scene = pyrender.Scene(bg_color=[0.0, 0.0, 0.0, 0.0], ambient_light=(0.3, 0.3, 0.3))
+        self.scene = pyrender.Scene(
+            bg_color=[0.0, 0.0, 0.0, 0.0], ambient_light=(0.3, 0.3, 0.3)
+        )
 
         # light = pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=0.8)
         light = pyrender.DirectionalLight(color=[1.0, 1.0, 1.0], intensity=0.8)
@@ -62,16 +68,24 @@ class Renderer:
         light_pose[:3, 3] = [1, 1, 2]
         self.scene.add(light, pose=light_pose)
 
-    def render(self, img, verts, cam, angle=None, axis=None, mesh_filename=None, color=(1.0, 1.0, 0.9), rotate=False):
-
+    def render(
+        self,
+        img,
+        verts,
+        cam,
+        angle=None,
+        axis=None,
+        mesh_filename=None,
+        color=(1.0, 1.0, 0.9),
+        rotate=False,
+    ):
         mesh = trimesh.Trimesh(vertices=verts, faces=self.faces, process=False)
 
         Rx = trimesh.transformations.rotation_matrix(math.radians(180), [1, 0, 0])
         mesh.apply_transform(Rx)
 
         if rotate:
-            rot = trimesh.transformations.rotation_matrix(
-                np.radians(60), [0, 1, 0])
+            rot = trimesh.transformations.rotation_matrix(np.radians(60), [0, 1, 0])
             mesh.apply_transform(rot)
 
         if mesh_filename is not None:
@@ -84,20 +98,16 @@ class Renderer:
         sx, sy, tx, ty = cam
 
         camera = WeakPerspectiveCamera(
-            scale=[sx, sy],
-            translation=[tx, ty],
-            zfar=1000.
+            scale=[sx, sy], translation=[tx, ty], zfar=1000.0
         )
 
         material = pyrender.MetallicRoughnessMaterial(
-            metallicFactor=0.0,
-            alphaMode='OPAQUE',
-            baseColorFactor=color
+            metallicFactor=0.0, alphaMode="OPAQUE", baseColorFactor=color
         )
 
         mesh = pyrender.Mesh.from_trimesh(mesh, material=material, smooth=False)
 
-        mesh_node = self.scene.add(mesh, 'mesh')
+        mesh_node = self.scene.add(mesh, "mesh")
 
         camera_pose = np.eye(4)
         cam_node = self.scene.add(camera, pose=camera_pose)

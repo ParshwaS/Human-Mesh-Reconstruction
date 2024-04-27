@@ -1,8 +1,7 @@
 from setuptools import find_packages, setup
 import warnings
 
-DEPENDENCY_PACKAGE_NAMES = ["matplotlib", "torch", "tqdm", "numpy", "cv2",
-                            "chumpy"]
+DEPENDENCY_PACKAGE_NAMES = ["matplotlib", "torch", "tqdm", "numpy", "cv2", "chumpy"]
 
 
 def check_dependencies():
@@ -15,10 +14,12 @@ def check_dependencies():
 
     if missing_dependencies:
         warnings.warn(
-            'Missing dependencies: {}. We recommend you follow '
-            'the installation instructions at '
-            'https://github.com/hassony2/manopth#installation'.format(
-                missing_dependencies))
+            "Missing dependencies: {}. We recommend you follow "
+            "the installation instructions at "
+            "https://github.com/hassony2/manopth#installation".format(
+                missing_dependencies
+            )
+        )
 
 
 with open("README.md", "r") as fh:
@@ -31,7 +32,7 @@ setup(
     version="0.0.1",
     author="Yana Hasson",
     author_email="yana.hasson.inria@gmail.com",
-    packages=find_packages(exclude=('tests',)),
+    packages=find_packages(exclude=("tests",)),
     python_requires=">=3.5.0",
     description="PyTorch mano layer",
     long_description=long_description,
