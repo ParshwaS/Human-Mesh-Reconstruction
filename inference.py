@@ -51,7 +51,6 @@ from smpl import SMPL
 def get_model(trained_model="3dpw", device="cuda"):
     mesh_model = SMPL()
     joint_regressor = mesh_model.joint_regressor_coco
-    np.save("models/joint_regressor.npy", mesh_model.joint_regressor_coco)
     joint_num = 19
     skeleton = (
         (1, 2),
