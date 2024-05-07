@@ -23,7 +23,11 @@ This project implements A Lightweight Graph Transformer Network for Human Mesh R
 - **liveWebCam.py**
     - Contains the code to run the project on live webcam
 
-## How to run the project:
+## How to run the project (Colab without exported models):
+- Open the colab notebook [Colab Link](https://colab.research.google.com/drive/1IvLYz5IazkvwFWFjUDkT8DUcIFEsoEDz?usp=sharing)
+- Run the cells in the notebook
+
+## How to run the project (Local with exported models):
 - Clone the repository
 - Create a virtual environment using the command `conda create -n <env_name> python=3.9`
 - Install the required libraries using the command `pip install -r requirements.txt`

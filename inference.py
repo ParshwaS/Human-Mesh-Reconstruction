@@ -2,6 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+# Importing required libraries
+
 import sys
 import os
 import os.path as osp
@@ -19,6 +21,7 @@ from PoseDetector.modules.load_state import load_state
 from PoseDetector.modules.pose import Pose, track_poses
 from PoseDetector.val import normalize, pad_width
 
+# Adding required paths to sys.path so that the required modules can be imported
 
 def add_path(path):
     if path not in sys.path:
@@ -36,6 +39,8 @@ add_path(smpl_path)
 mano_path = osp.join(this_dir, "GTRS", "manopth")
 add_path(mano_path)
 
+# Importing required modules (from newly added paths)
+
 import models
 from core.config import cfg
 from aug_utils import j2d_processing
@@ -47,7 +52,10 @@ from vis import vis_2d_keypoints, vis_coco_skeleton
 from _mano import MANO
 from smpl import SMPL
 
+# Defining required functions
 
+# Function to get the model
+# This function returns the GTRS model, joint regressor, joint number, skeleton, graph_L, graph_perm_reverse, and mesh model
 def get_model(trained_model="3dpw", device="cuda"):
     mesh_model = SMPL()
     joint_regressor = mesh_model.joint_regressor_coco
@@ -95,7 +103,7 @@ def get_model(trained_model="3dpw", device="cuda"):
         mesh_model,
     )
 
-
+# Function to convert predicted camera from cropped image coordinates to original image coordinates
 def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
     """
     Convert predicted camera from cropped image coordinates
@@ -144,7 +152,7 @@ def render(result, orig_height, orig_width, orig_img, mesh_face, color):
 
     return renederd_img
 
-
+# Function to optimize camera parameters for projection
 def optimize_cam_param(
     project_net, joint_input, crop_size, model, joint_regressor, device="cuda"
 ):
@@ -206,7 +214,7 @@ def optimize_cam_param(
 
     return out
 
-
+# Function to infer 2D pose using the PoseDetector (lightweight openpose model)
 def infer_fast_2d_pose(
     net,
     img,
@@ -256,7 +264,7 @@ def infer_fast_2d_pose(
 
     return heatmaps, pafs, scale, pad
 
-
+# Function to detect 2D pose using the PoseDetector (lightweight openpose model)
 def detect_2d_pose(image_path, device="cuda"):
     net = PoseEstimationWithMobileNet()
     checkpoint = torch.load(
@@ -308,7 +316,7 @@ def detect_2d_pose(image_path, device="cuda"):
 
     return all_poses
 
-
+# Function to get 3D mesh from 2D image using the GTRS model and PoseDetector
 def get_3d_mesh(input_img, output_path):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     (
@@ -400,7 +408,8 @@ def get_3d_mesh(input_img, output_path):
     cv2.imwrite(output_path + f".png", rendered_img)
     save_obj(out["mesh"], mesh_model.face, output_path + f".obj")
 
-
+# Main function
+# This function takes input image path and output path as arguments and calls the get_3d_mesh function
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GTRS Inference")
     parser.add_argument(

@@ -16,7 +16,8 @@ logger.addHandler(
     FileHandler(f"logs/liveWebCam-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log")
 )
 
-
+# Helper functions
+# Convert weak perspective camera to perspective camera
 def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
     """
     Convert predicted camera from cropped image coordinates
@@ -38,7 +39,7 @@ def convert_crop_cam_to_orig_img(cam, bbox, img_width, img_height):
     orig_cam = np.stack([sx, sy, tx, ty]).T
     return orig_cam
 
-
+# Render the mesh on the image using the predicted camera and vertices
 def render(pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, color):
     orig_cam, *_ = convert_crop_cam_to_orig_img(
         cam=pred_cam, bbox=bbox, img_width=orig_width, img_height=orig_height
@@ -56,7 +57,7 @@ def render(pred_verts, pred_cam, bbox, orig_height, orig_width, orig_img, color)
 
     return renederd_img
 
-
+# Define the camera optimization layer
 class OptimzeCamLayer(torch.nn.Module):
     def __init__(self):
         super(OptimzeCamLayer, self).__init__()
@@ -69,7 +70,7 @@ class OptimzeCamLayer(torch.nn.Module):
         output = output * self.cam_param[None, :, :1] * self.img_res + self.img_res
         return output
 
-
+# Define the video reader which can read from webcam or video file
 class VideoReader(object):
     def __init__(self, file_name):
         self.file_name = file_name
@@ -90,7 +91,7 @@ class VideoReader(object):
             raise StopIteration
         return img
 
-
+# Define the camera optimization class
 class CameraParam:
     def __init__(self):
         self.proj = OptimzeCamLayer()
@@ -117,7 +118,6 @@ class CameraParam:
 
         return self.proj.cam_param.detach().numpy()
 
-
 # Load Models
 GTRS = InferenceSession("models/GTRS.onnx")
 PoseDetector = torch.jit.load(
@@ -127,6 +127,7 @@ mesh_model_face = np.load("models/SMPL.npy")
 joint_regressor = np.load("models/joint_regressor.npy")
 camera_param = CameraParam()
 video_reader = VideoReader(0)
+
 # Get the first frame to set the renderer resolution
 (H, W, _) = next(iter(video_reader)).shape
 renderer = Renderer(mesh_model_face, resolution=(W, H), orig_img=True, wireframe=False)
@@ -169,7 +170,7 @@ for img in video_reader:
     logger.debug("Render image: %s", time.time() - time_start)
 
     cv2.imshow("Rendered Image", rendered_img)
-    # FIXME: The rendered mesh is like a transposed image
+    
     logger.debug("Show image: %s", time.time() - time_start)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
