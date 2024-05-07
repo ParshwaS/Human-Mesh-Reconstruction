@@ -260,7 +260,7 @@ def infer_fast_2d_pose(
 def detect_2d_pose(image_path, device="cuda"):
     net = PoseEstimationWithMobileNet()
     checkpoint = torch.load(
-        "PoseDetector/checkpoint_iter_370000.pth", map_location="cpu"
+        osp.join(this_dir, "PoseDetector/checkpoint_iter_370000.pth"), map_location="cpu"
     )
     load_state(net, checkpoint)
     cpu = False if device == "cuda" else True
